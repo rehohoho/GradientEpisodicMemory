@@ -157,6 +157,8 @@ class Net(nn.Module):
             self.old_task = t
 
         # Update ring buffer storing examples from current task
+        # self.memory_data: (tasks x n_memories x input_size)
+        # self.memory_labs: (tasks x n_memories)
         bsz = y.data.size(0)
         endcnt = min(self.mem_cnt + bsz, self.n_memories)
         effbsz = endcnt - self.mem_cnt
@@ -171,7 +173,7 @@ class Net(nn.Module):
         if self.mem_cnt == self.n_memories:
             self.mem_cnt = 0
 
-        # compute gradient on previous tasks
+        # compute gradient on previous tasks, except current
         if len(self.observed_tasks) > 1:
             for tt in range(len(self.observed_tasks) - 1):
                 self.zero_grad()
@@ -180,11 +182,12 @@ class Net(nn.Module):
 
                 offset1, offset2 = compute_offsets(past_task, self.nc_per_task,
                                                    self.is_cifar)
-                ptloss = self.ce(
-                    self.forward(
-                        self.memory_data[past_task],
-                        past_task)[:, offset1: offset2],
-                    self.memory_labs[past_task] - offset1)
+                
+                # (n_memories, inputs), (n_memories) -> (n_memories, outputs), (n_memories)
+                loss_input = self.forward(self.memory_data[past_task], past_task)
+                loss_target = self.memory_labs[past_task] - offset1
+                
+                ptloss = self.ce(loss_input[:, offset1: offset2], loss_target)
                 ptloss.backward()
                 store_grad(self.parameters, self.grads, self.grad_dims,
                            past_task)

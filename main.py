@@ -21,16 +21,31 @@ from metrics.metrics import confusion_matrix
 
 
 def load_datasets(args):
+    '''
+    training dataset
+    testing dataset
+    n_inputs: size of input = 3072
+    n_outputs: maximum label = 100
+    n_tasks: number of tasks = 20
+    '''
     d_tr, d_te = torch.load(args.data_path + '/' + args.data_file)
     n_inputs = d_tr[0][1].size(1)
     n_outputs = 0
-    for i in range(len(d_tr)):
-        n_outputs = max(n_outputs, d_tr[i][2].max().item())
+    for i in range(len(d_tr)): # each task
+        n_outputs = max(n_outputs, d_tr[i][2].max().item()) # maximum label
         n_outputs = max(n_outputs, d_te[i][2].max().item())
     return d_tr, d_te, n_inputs, n_outputs + 1, len(d_tr)
 
 
 class Continuum:
+    '''
+    1. Shuffle tasks if specified in args
+    2. Gets permutation of samples (all or specified) for each task
+    3. Store epoch permutation of samples for each task according to (1) and (2)
+
+    __next__:
+        returns 
+    '''
 
     def __init__(self, data, args):
         self.data = data
@@ -42,6 +57,8 @@ class Continuum:
             task_permutation = torch.randperm(n_tasks).tolist()
 
         sample_permutations = []
+        # stores permutation of sample by task
+        # e.g. [1, 5, 3], [4, 1, 2] ...
 
         for t in range(n_tasks):
             N = data[t][1].size(0)
@@ -54,6 +71,8 @@ class Continuum:
             sample_permutations.append(p)
 
         self.permutation = []
+        # stores permutation of sample by permuation of task
+        # e.g. [0, 1], [0, 5], [0, 3], [0, 1], [0, 5], [0, 3], [1, 4] ...
 
         for t in range(n_tasks):
             task_t = task_permutation[t]
@@ -72,6 +91,19 @@ class Continuum:
         return self.__next__()
 
     def __next__(self):
+        '''
+        Takes next task
+        Adds data units indices while the next sample is the same task, 
+            until batch or end of data
+        Reads data tensor based on data units collected
+        
+        x_tr and x_te Contents:
+            (start_class, end_class),
+            (sample_no x image_data), image data each 3072 floats (32 x 32 x 3)
+            (sample_no), label data each 1 int
+
+        Returns (training dataset), (testing dataset) for task
+        '''
         if self.current >= self.length:
             raise StopIteration
         else:
@@ -127,6 +159,10 @@ def life_experience(model, continuum, x_te, args):
     time_start = time.time()
 
     for (i, (x, t, y)) in enumerate(continuum):
+        # x - image: (b x 3072)
+        # t - task number
+        # y - label: (b)
+        
         if(((i % args.log_every) == 0) or (t != current_task)):
             result_a.append(eval_tasks(model, x_te, args))
             result_t.append(current_task)
