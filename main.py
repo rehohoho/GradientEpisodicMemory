@@ -16,109 +16,10 @@ import numpy as np
 
 import torch
 from metrics.metrics import confusion_matrix
+from feeders.feeders import load_datasets
+from feeders.continuum import Continuum
 
 # continuum iterator #########################################################
-
-
-def load_datasets(args):
-    '''
-    training dataset
-    testing dataset
-    n_inputs: size of input = 3072
-    n_outputs: maximum label = 100
-    n_tasks: number of tasks = 20
-    '''
-    d_tr, d_te = torch.load(args.data_path + '/' + args.data_file)
-    n_inputs = d_tr[0][1].size(1)
-    n_outputs = 0
-    for i in range(len(d_tr)): # each task
-        n_outputs = max(n_outputs, d_tr[i][2].max().item()) # maximum label
-        n_outputs = max(n_outputs, d_te[i][2].max().item())
-    return d_tr, d_te, n_inputs, n_outputs + 1, len(d_tr)
-
-
-class Continuum:
-    '''
-    1. Shuffle tasks if specified in args
-    2. Gets permutation of samples (all or specified) for each task
-    3. Store epoch permutation of samples for each task according to (1) and (2)
-
-    __next__:
-        returns 
-    '''
-
-    def __init__(self, data, args):
-        self.data = data
-        self.batch_size = args.batch_size
-        n_tasks = len(data)
-        task_permutation = range(n_tasks)
-
-        if args.shuffle_tasks == 'yes':
-            task_permutation = torch.randperm(n_tasks).tolist()
-
-        sample_permutations = []
-        # stores permutation of sample by task
-        # e.g. [1, 5, 3], [4, 1, 2] ...
-
-        for t in range(n_tasks):
-            N = data[t][1].size(0)
-            if args.samples_per_task <= 0:
-                n = N
-            else:
-                n = min(args.samples_per_task, N)
-
-            p = torch.randperm(N)[0:n]
-            sample_permutations.append(p)
-
-        self.permutation = []
-        # stores permutation of sample by permuation of task
-        # e.g. [0, 1], [0, 5], [0, 3], [0, 1], [0, 5], [0, 3], [1, 4] ...
-
-        for t in range(n_tasks):
-            task_t = task_permutation[t]
-            for _ in range(args.n_epochs):
-                task_p = [[task_t, i] for i in sample_permutations[task_t]]
-                random.shuffle(task_p)
-                self.permutation += task_p
-
-        self.length = len(self.permutation)
-        self.current = 0
-
-    def __iter__(self):
-        return self
-
-    def next(self):
-        return self.__next__()
-
-    def __next__(self):
-        '''
-        Takes next task
-        Adds data units indices while the next sample is the same task, 
-            until batch or end of data
-        Reads data tensor based on data units collected
-        
-        x_tr and x_te Contents:
-            (start_class, end_class),
-            (sample_no x image_data), image data each 3072 floats (32 x 32 x 3)
-            (sample_no), label data each 1 int
-
-        Returns (training dataset), (testing dataset) for task
-        '''
-        if self.current >= self.length:
-            raise StopIteration
-        else:
-            ti = self.permutation[self.current][0]
-            j = []
-            i = 0
-            while (((self.current + i) < self.length) and
-                   (self.permutation[self.current + i][0] == ti) and
-                   (i < self.batch_size)):
-                j.append(self.permutation[self.current + i][1])
-                i += 1
-            self.current += i
-            j = torch.LongTensor(j)
-            return self.data[ti][1][j], ti, self.data[ti][2][j]
-
 # train handle ###############################################################
 
 
@@ -157,11 +58,13 @@ def life_experience(model, continuum, x_te, args):
 
     current_task = 0
     time_start = time.time()
-
+    print(continuum.length)
     for (i, (x, t, y)) in enumerate(continuum):
         # x - image: (b x 3072)
         # t - task number
         # y - label: (b)
+        if continuum.current == 10:
+            break
         
         if(((i % args.log_every) == 0) or (t != current_task)):
             result_a.append(eval_tasks(model, x_te, args))
@@ -185,6 +88,59 @@ def life_experience(model, continuum, x_te, args):
     time_spent = time_end - time_start
 
     return torch.Tensor(result_t), torch.Tensor(result_a), time_spent
+
+
+def main(args):
+    # unique identifier
+    uid = uuid.uuid4().hex
+
+    # initialize seeds
+    torch.backends.cudnn.enabled = False
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    random.seed(args.seed)
+    if args.cuda:
+        torch.cuda.manual_seed_all(args.seed)
+    print('seeds initialised')
+
+    # load data
+    x_tr, x_te, n_inputs, n_outputs, n_tasks = load_datasets(args)
+    print('data loaded')
+
+    # set up continuum
+    continuum = Continuum(x_tr, args)
+    print('continuum loaded')
+
+    # load model
+    Model = importlib.import_module('model.' + args.model)
+    model = Model.Net(n_inputs, n_outputs, n_tasks, args)
+    if args.cuda:
+        model.cuda()
+    print('model loaded')
+
+    # run model on continuum
+    result_t, result_a, spent_time = life_experience(
+        model, continuum, x_te, args)
+    print('training done')
+
+    # prepare saving path and file name
+    if not os.path.exists(args.save_path):
+        os.makedirs(args.save_path)
+
+    fname = args.model + '_' + args.data_file + '_'
+    fname += datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    fname += '_' + uid
+    fname = os.path.join(args.save_path, fname)
+
+    # save confusion matrix and print one line of stats
+    stats = confusion_matrix(result_t, result_a, fname + '.txt')
+    one_liner = str(vars(args)) + ' # '
+    one_liner += ' '.join(["%.3f" % stat for stat in stats])
+    print(fname + ': ' + one_liner + ' # ' + str(spent_time))
+
+    # save all results in binary file
+    torch.save((result_t, result_a, model.state_dict(),
+                stats, one_liner, args), fname + '.pt')
 
 
 if __name__ == "__main__":
@@ -242,48 +198,4 @@ if __name__ == "__main__":
     if args.model == 'multimodal':
         args.n_layers -= 1
 
-    # unique identifier
-    uid = uuid.uuid4().hex
-
-    # initialize seeds
-    torch.backends.cudnn.enabled = False
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
-    random.seed(args.seed)
-    if args.cuda:
-        torch.cuda.manual_seed_all(args.seed)
-
-    # load data
-    x_tr, x_te, n_inputs, n_outputs, n_tasks = load_datasets(args)
-
-    # set up continuum
-    continuum = Continuum(x_tr, args)
-
-    # load model
-    Model = importlib.import_module('model.' + args.model)
-    model = Model.Net(n_inputs, n_outputs, n_tasks, args)
-    if args.cuda:
-        model.cuda()
-
-    # run model on continuum
-    result_t, result_a, spent_time = life_experience(
-        model, continuum, x_te, args)
-
-    # prepare saving path and file name
-    if not os.path.exists(args.save_path):
-        os.makedirs(args.save_path)
-
-    fname = args.model + '_' + args.data_file + '_'
-    fname += datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    fname += '_' + uid
-    fname = os.path.join(args.save_path, fname)
-
-    # save confusion matrix and print one line of stats
-    stats = confusion_matrix(result_t, result_a, fname + '.txt')
-    one_liner = str(vars(args)) + ' # '
-    one_liner += ' '.join(["%.3f" % stat for stat in stats])
-    print(fname + ': ' + one_liner + ' # ' + str(spent_time))
-
-    # save all results in binary file
-    torch.save((result_t, result_a, model.state_dict(),
-                stats, one_liner, args), fname + '.pt')
+    main(args)
