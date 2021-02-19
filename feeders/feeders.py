@@ -12,6 +12,29 @@ task x
 import torch
 
 
+def default_load(args):
+    d_tr, d_te = torch.load(args.data_path + '/' + args.data_file)
+    n_inputs = d_tr[0][1].size(1)
+    n_outputs = 0
+    for i in range(len(d_tr)): # each task
+        n_outputs = max(n_outputs, d_tr[i][2].max().item()) # maximum label
+        n_outputs = max(n_outputs, d_te[i][2].max().item())
+    return d_tr, d_te, n_inputs, n_outputs + 1, len(d_tr)
+
+
+def load_nturgbd60(args):
+    d_tr, d_te = torch.load(args.data_path + '/' + args.data_file)
+    print('length of training data', len(d_tr))
+    print('length of testing data', len(d_te))
+    
+    n_outputs = 0
+    for datapoint in d_te:
+        n_outputs = max(n_outputs, datapoint[2])
+    print('max class', n_outputs + 1)
+    
+    return d_tr, d_te, 0, n_outputs + 1, len(d_tr)
+
+
 def load_datasets(args):
     '''
     Returns: 
@@ -21,10 +44,7 @@ def load_datasets(args):
         n_outputs: maximum label = 100 for cifar
         n_tasks: number of tasks = 20 for cifar
     '''
-    d_tr, d_te = torch.load(args.data_path + '/' + args.data_file)
-    n_inputs = d_tr[0][1].size(1)
-    n_outputs = 0
-    for i in range(len(d_tr)): # each task
-        n_outputs = max(n_outputs, d_tr[i][2].max().item()) # maximum label
-        n_outputs = max(n_outputs, d_te[i][2].max().item())
-    return d_tr, d_te, n_inputs, n_outputs + 1, len(d_tr)
+    if 'nturgbd60' in args.data_file:
+        return load_nturgbd60(args)
+    else:
+        return default_load(args)

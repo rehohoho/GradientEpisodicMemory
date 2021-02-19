@@ -4,5 +4,7 @@
 *.pdf
 *.tar.gz
 *.npz
+*.pkl
+*.npy
 
 /data/raw/cifar-100-python
