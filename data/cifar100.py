@@ -30,8 +30,8 @@ cpt = int(100 / args.n_tasks)
 for t in range(args.n_tasks):
     c1 = t * cpt
     c2 = (t + 1) * cpt
-    i_tr = ((y_tr >= c1) & (y_tr < c2)).nonzero().view(-1)
-    i_te = ((y_te >= c1) & (y_te < c2)).nonzero().view(-1)
+    i_tr = ((y_tr >= c1) & (y_tr < c2)).nonzero().view(-1)[:10]
+    i_te = ((y_te >= c1) & (y_te < c2)).nonzero().view(-1)[:10]
     tasks_tr.append([(c1, c2), x_tr[i_tr].clone(), y_tr[i_tr].clone()])
     tasks_te.append([(c1, c2), x_te[i_te].clone(), y_te[i_te].clone()])
 

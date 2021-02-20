@@ -18,6 +18,7 @@ from .agcn import AGCN
 
 # Auxiliary functions useful for GEM's inner optimization.
 
+''' remove loss subsetting, use weighted loss
 def compute_offsets(task, nc_per_task, is_cifar):
     """
         Compute offsets for cifar to determine which
@@ -30,6 +31,7 @@ def compute_offsets(task, nc_per_task, is_cifar):
         offset1 = 0
         offset2 = nc_per_task
     return offset1, offset2
+'''
 
 
 def store_grad(pp, grads, grad_dims, tid):
@@ -95,7 +97,7 @@ def project2cone2(gradient, memories, margin=0.5, eps=1e-3):
 
 class Net(nn.Module):
     def __init__(self,
-                 n_inputs,
+                 input_shape,
                  n_outputs,
                  n_tasks,
                  args):
@@ -110,9 +112,11 @@ class Net(nn.Module):
             model_args = yaml.load(args.model_args, Loader=yaml.FullLoader)
             self.net = AGCN(*model_args.values()) # requires model_args to follow defined sequence
         else:
-            self.net = MLP([n_inputs] + [nh] * nl + [n_outputs])
+            assert len(input_shape) == 1
+            self.net = MLP([input_shape[0]] + [nh] * nl + [n_outputs])
 
-        self.ce = nn.CrossEntropyLoss()
+        self.ce_type = nn.CrossEntropyLoss
+        self.ce = self.ce_type()
         self.n_outputs = n_outputs
 
         self.opt = optim.SGD(self.parameters(), args.lr)
@@ -122,7 +126,7 @@ class Net(nn.Module):
 
         # allocate episodic memory
         self.memory_data = torch.FloatTensor(
-            n_tasks, self.n_memories, n_inputs)
+            n_tasks, self.n_memories, *list(input_shape))
         self.memory_labs = torch.LongTensor(n_tasks, self.n_memories)
         if args.cuda:
             self.memory_data = self.memory_data.cuda()
@@ -140,13 +144,27 @@ class Net(nn.Module):
         self.observed_tasks = []
         self.old_task = -1
         self.mem_cnt = 0
+        ''' remove loss subsetting, use weighted loss
         if self.is_cifar:
             self.nc_per_task = int(n_outputs / n_tasks)
         else:
             self.nc_per_task = n_outputs
+        '''
+    
+    def update_loss_mask(self, classes):
+        loss_weights = torch.zeros(self.n_outputs)
+        if isinstance(classes, tuple):
+            for i in range(*classes):
+                loss_weights[i] = 1
+        elif isinstance(classes, list):
+            for i in classes:
+                loss_weights[i] = 1
+        print(f'Loss weights updated according {classes}\n{loss_weights}.')
+        self.ce = self.ce_type(weight=loss_weights)
 
     def forward(self, x, t):
         output = self.net(x)
+        ''' remove loss subsetting, use weighted loss
         if self.is_cifar:
             # make sure we predict classes within the current task
             offset1 = int(t * self.nc_per_task)
@@ -155,12 +173,13 @@ class Net(nn.Module):
                 output[:, :offset1].data.fill_(-10e10)
             if offset2 < self.n_outputs:
                 output[:, offset2:self.n_outputs].data.fill_(-10e10)
+        '''
         return output
 
     def observe(self, x, t, y):
         # update memory
         if t != self.old_task:
-            self.observed_tasks.append(t)
+            self.observed_tasks.append(t) #[0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2 ...]
             self.old_task = t
 
         # Update ring buffer storing examples from current task
@@ -187,14 +206,14 @@ class Net(nn.Module):
                 # fwd/bwd on the examples in the memory
                 past_task = self.observed_tasks[tt]
 
-                offset1, offset2 = compute_offsets(past_task, self.nc_per_task,
-                                                   self.is_cifar)
-                
                 # (n_memories, inputs), (n_memories) -> (n_memories, outputs), (n_memories)
+                ''' remove loss subsetting, use weighted loss
+                offset1, offset2 = compute_offsets(past_task, self.nc_per_task, self.is_cifar)
+                ptloss = self.ce(loss_input[:, offset1: offset2], loss_target - offset1)
+                '''
                 loss_input = self.forward(self.memory_data[past_task], past_task)
-                loss_target = self.memory_labs[past_task] - offset1
-                
-                ptloss = self.ce(loss_input[:, offset1: offset2], loss_target)
+                loss_target = self.memory_labs[past_task]
+                ptloss = self.ce(loss_input, loss_target)
                 ptloss.backward()
                 store_grad(self.parameters, self.grads, self.grad_dims,
                            past_task)
@@ -202,8 +221,12 @@ class Net(nn.Module):
         # now compute the grad on the current minibatch
         self.zero_grad()
 
+        ''' remove loss subsetting, use weighted loss
         offset1, offset2 = compute_offsets(t, self.nc_per_task, self.is_cifar)
-        loss = self.ce(self.forward(x, t)[:, offset1: offset2], y - offset1)
+        loss = self.ce(loss_input[:, offset1: offset2], y - offset1)
+        '''
+        loss_input = self.forward(x, t)
+        loss = self.ce(loss_input, y)
         loss.backward()
 
         # check if gradient violates constraints

@@ -91,7 +91,10 @@ class unit_gcn(nn.Module):
 
     def forward(self, x):
         N, C, T, V = x.size()
-        A = self.A.cuda(x.get_device())
+        if x.get_device() > -1:
+            A = self.A.cuda(x.get_device())
+        else:
+            A = self.A
         A = A + self.PA
 
         y = None

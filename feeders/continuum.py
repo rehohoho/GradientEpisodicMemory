@@ -19,13 +19,13 @@ def load_datasets(args):
     Returns: 
         training dataset: see description in feeder docstring
         testing dataset: see description in feeder docstring
-        n_inputs: size of input = 3072 for cifar
+        input_shape: size of input = 3072 for cifar
         n_outputs: maximum label = 100 for cifar
         n_tasks: number of tasks = 20 for cifar
     '''
     
     d_tr, d_te = torch.load(args.data_path + '/' + args.data_file)
-    n_inputs = d_tr[0][1].size(1)
+    input_shape = d_tr[0][1].shape[1:]
     n_outputs = 0
     for i in range(len(d_tr)): # each task
         if len(d_tr[i][2]) > 0:
@@ -34,8 +34,8 @@ def load_datasets(args):
             n_outputs = max(n_outputs, d_te[i][2].max().item())
     print(f'number of tasks {len(d_tr)}')
     print(f'max class {n_outputs + 1}')
-    print(f'n_inputs {n_inputs}')
-    return d_tr, d_te, n_inputs, n_outputs + 1, len(d_tr)
+    print(f'input_shape {input_shape}')
+    return d_tr, d_te, input_shape, n_outputs + 1, len(d_tr)
 
 
 class Continuum:

@@ -26,7 +26,7 @@ def eval_tasks(model, tasks, args):
     model.eval()
     result = []
     for i, task in enumerate(tasks):
-        task = i
+        t = i
         x = task[1]
         y = task[2]
         rt = 0
@@ -36,14 +36,18 @@ def eval_tasks(model, tasks, args):
         for b_from in range(0, x.size(0), eval_bs):
             b_to = min(b_from + eval_bs, x.size(0) - 1)
             if b_from == b_to:
-                xb = x[b_from].view(1, -1)
-                yb = torch.LongTensor([y[b_to]]).view(1, -1)
+                if 'nturgbd60' not in args.data_file:
+                    xb = x[b_from].view(1, -1)
+                    yb = torch.LongTensor([y[b_to]]).view(1, -1)
+                else:
+                    xb = torch.unsqueeze(x[b_from], dim=0)
+                    yb = torch.LongTensor([y[b_to]])
             else:
                 xb = x[b_from:b_to]
                 yb = y[b_from:b_to]
             if args.cuda:
                 xb = xb.cuda()
-            _, pb = torch.max(model(xb, task).data.cpu(), 1, keepdim=False)
+            _, pb = torch.max(model(xb, t).data.cpu(), 1, keepdim=False)
             rt += (pb == yb).float().sum()
 
         result.append(rt / x.size(0))
@@ -55,7 +59,7 @@ def life_experience(model, continuum, x_te, args):
     result_a = []
     result_t = []
 
-    current_task = 0
+    current_task = -1 # trigger first task change update
     time_start = time.time()
     print(f'Length of continuum: {continuum.length}')
 
@@ -63,17 +67,24 @@ def life_experience(model, continuum, x_te, args):
         # task - task number
         # classes - classes in same task
         # x - image: (b x 3072)
-        # y - label: (b)
-        if continuum.current == 10:
+        # y - label: (b)``
+        print(f'continuum idx {i}')
+        if continuum.current == 20:
             break
         
+        if task != current_task and args.model == 'gem':
+            model.update_loss_mask(classes)
+
         # data sorted by task in data processing and built accordingly in continuum init
         if(((i % args.log_every) == 0) or (task != current_task)):
             result_a.append(eval_tasks(model, x_te, args))
             result_t.append(current_task)
             current_task = task
 
-        v_x = x.view(x.size(0), -1)
+        if args.model != 'gem':
+            v_x = x.view(x.size(0), -1)
+        else:
+            v_x = x
         v_y = y.long()
 
         if args.cuda:
@@ -81,10 +92,7 @@ def life_experience(model, continuum, x_te, args):
             v_y = v_y.cuda()
 
         model.train()
-        if args.model == 'gem':
-            model.observe(task, classes, v_x, v_y)
-        else:
-            model.observe(v_x, task, v_y)
+        model.observe(v_x, task, v_y)
 
     result_a.append(eval_tasks(model, x_te, args))
     result_t.append(current_task)
@@ -109,7 +117,7 @@ def main(args):
     print('seeds initialised')
 
     # load data
-    x_tr, x_te, n_inputs, n_outputs, n_tasks = load_datasets(args)
+    x_tr, x_te, input_shape, n_outputs, n_tasks = load_datasets(args)
     print('data loaded')
 
     # set up continuum
@@ -118,7 +126,7 @@ def main(args):
 
     # load model
     Model = importlib.import_module('model.' + args.model)
-    model = Model.Net(n_inputs, n_outputs, n_tasks, args)
+    model = Model.Net(input_shape, n_outputs, n_tasks, args)
     if args.cuda:
         model.cuda()
     print('model loaded')
