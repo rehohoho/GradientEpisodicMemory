@@ -4,14 +4,17 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
+import yaml
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
 import numpy as np
 import quadprog
 
 from .common import MLP, ResNet18
+from .agcn import AGCN
+
 
 # Auxiliary functions useful for GEM's inner optimization.
 
@@ -100,8 +103,12 @@ class Net(nn.Module):
         nl, nh = args.n_layers, args.n_hiddens
         self.margin = args.memory_strength
         self.is_cifar = (args.data_file == 'cifar100.pt')
+        self.is_nturgbd = (args.data_file == 'nturgbd60.pt')
         if self.is_cifar:
             self.net = ResNet18(n_outputs)
+        elif self.is_nturgbd:
+            model_args = yaml.load(args.model_args, Loader=yaml.FullLoader)
+            self.net = AGCN(*model_args.values()) # requires model_args to follow defined sequence
         else:
             self.net = MLP([n_inputs] + [nh] * nl + [n_outputs])
 
