@@ -16,8 +16,7 @@ import numpy as np
 
 import torch
 from metrics.metrics import confusion_matrix
-from feeders.feeders import load_datasets
-from feeders.continuum import Continuum
+from feeders.continuum import load_datasets, Continuum
 
 # continuum iterator #########################################################
 # train handle ###############################################################
@@ -27,7 +26,7 @@ def eval_tasks(model, tasks, args):
     model.eval()
     result = []
     for i, task in enumerate(tasks):
-        t = i
+        task = i
         x = task[1]
         y = task[2]
         rt = 0
@@ -44,7 +43,7 @@ def eval_tasks(model, tasks, args):
                 yb = y[b_from:b_to]
             if args.cuda:
                 xb = xb.cuda()
-            _, pb = torch.max(model(xb, t).data.cpu(), 1, keepdim=False)
+            _, pb = torch.max(model(xb, task).data.cpu(), 1, keepdim=False)
             rt += (pb == yb).float().sum()
 
         result.append(rt / x.size(0))
@@ -58,18 +57,21 @@ def life_experience(model, continuum, x_te, args):
 
     current_task = 0
     time_start = time.time()
-    print(continuum.length)
-    for (i, (x, t, y)) in enumerate(continuum):
+    print(f'Length of continuum: {continuum.length}')
+
+    for (i, (task, classes, x, y)) in enumerate(continuum):
+        # task - task number
+        # classes - classes in same task
         # x - image: (b x 3072)
-        # t - task number
         # y - label: (b)
         if continuum.current == 10:
             break
         
-        if(((i % args.log_every) == 0) or (t != current_task)):
+        # data sorted by task in data processing and built accordingly in continuum init
+        if(((i % args.log_every) == 0) or (task != current_task)):
             result_a.append(eval_tasks(model, x_te, args))
             result_t.append(current_task)
-            current_task = t
+            current_task = task
 
         v_x = x.view(x.size(0), -1)
         v_y = y.long()
@@ -79,7 +81,10 @@ def life_experience(model, continuum, x_te, args):
             v_y = v_y.cuda()
 
         model.train()
-        model.observe(v_x, t, v_y)
+        if args.model == 'gem':
+            model.observe(task, classes, v_x, v_y)
+        else:
+            model.observe(v_x, task, v_y)
 
     result_a.append(eval_tasks(model, x_te, args))
     result_t.append(current_task)
@@ -153,6 +158,8 @@ if __name__ == "__main__":
                         help='number of hidden neurons at each layer')
     parser.add_argument('--n_layers', type=int, default=2,
                         help='number of hidden layers')
+    parser.add_argument('--model_args', default=None,
+                        help='a JSON string which specifies model arguments')
 
     # memory parameters
     parser.add_argument('--n_memories', type=int, default=0,
