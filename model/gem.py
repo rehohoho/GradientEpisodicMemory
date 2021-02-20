@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import yaml
+import logging
 
 import torch
 import torch.nn as nn
@@ -15,6 +16,7 @@ import quadprog
 from .common import MLP, ResNet18
 from .agcn import AGCN
 
+logger = logging.getLogger(__name__)
 
 # Auxiliary functions useful for GEM's inner optimization.
 
@@ -114,6 +116,7 @@ class Net(nn.Module):
         else:
             assert len(input_shape) == 1
             self.net = MLP([input_shape[0]] + [nh] * nl + [n_outputs])
+        logger.info(self.net.__str__())
 
         self.ce_type = nn.CrossEntropyLoss
         self.ce = self.ce_type()
@@ -153,13 +156,15 @@ class Net(nn.Module):
     
     def update_loss_mask(self, classes):
         loss_weights = torch.zeros(self.n_outputs)
+        if self.gpu:
+            loss_weights = loss_weights.cuda()
         if isinstance(classes, tuple):
             for i in range(*classes):
                 loss_weights[i] = 1
         elif isinstance(classes, list):
             for i in classes:
                 loss_weights[i] = 1
-        print(f'Loss weights updated according {classes}\n{loss_weights}.')
+        logger.info(f'Loss weights updated according {classes}\n{loss_weights}.')
         self.ce = self.ce_type(weight=loss_weights)
 
     def forward(self, x, t):

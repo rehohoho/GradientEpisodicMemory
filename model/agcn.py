@@ -1,9 +1,12 @@
 import math
+import logging
 
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+
+logger = logging.getLogger(__name__)
 
 
 def import_class(name):
@@ -135,11 +138,12 @@ class TCN_GCN_unit(nn.Module):
 class AGCN(nn.Module):
     def __init__(self, num_class=60, num_point=25, num_person=2, graph=None, graph_args=dict(), in_channels=3):
         super(AGCN, self).__init__()
-        print(num_class)
-        print(num_point)
-        print(num_person)
-        print(graph)
-        print(graph_args)
+        logger.info(f'\targs: \n\
+            num_class {num_class} \n\
+            num_point {num_point} \n\
+            num_person {num_person} \n\
+            graph {graph} \n\
+            graph_args {graph_args}')
         if graph is None:
             raise ValueError()
         else:

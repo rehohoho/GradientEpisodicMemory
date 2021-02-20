@@ -109,10 +109,10 @@ def main(args):
     d_te = np.load(args.d_te_path, mmap_mode='r')
 
     # for testing uncomment
-    d_tr = d_tr[:100]
-    d_te = d_te[:100]
-    l_tr = l_tr[:100]
-    l_te = l_te[:100]
+    # d_tr = d_tr[:100]
+    # d_te = d_te[:100]
+    # l_tr = l_tr[:100]
+    # l_te = l_te[:100]
 
     tasks_tr = build_task_list(d_tr, l_tr)
     tasks_te = build_task_list(d_te, l_te)

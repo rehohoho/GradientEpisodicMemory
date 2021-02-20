@@ -11,6 +11,7 @@ import random
 import uuid
 import time
 import os
+import logging
 
 import numpy as np
 
@@ -18,8 +19,30 @@ import torch
 from metrics.metrics import confusion_matrix
 from feeders.continuum import load_datasets, Continuum
 
-# continuum iterator #########################################################
-# train handle ###############################################################
+
+def init_logger(path):
+
+    path_splitext = os.path.splitext(path) 
+    path = path_splitext[0] + '_' + \
+        str(datetime.datetime.now()).split(".")[0]\
+            .replace(" ", "_").replace(":", "_").replace("-", "_") + \
+        path_splitext[1]
+
+    file_handler = logging.FileHandler(path, mode="w")
+    file_handler.setLevel(logging.DEBUG)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter('%(asctime)s: %(levelname)s - [%(module)s] %(message)s')
+    stream_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
+
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    logger.addHandler(stream_handler)
+    logger.addHandler(file_handler)
+    
+    return logger
 
 
 def eval_tasks(model, tasks, args):
@@ -31,7 +54,7 @@ def eval_tasks(model, tasks, args):
         y = task[2]
         rt = 0
         
-        eval_bs = x.size(0)
+        eval_bs = args.batch_size
 
         for b_from in range(0, x.size(0), eval_bs):
             b_to = min(b_from + eval_bs, x.size(0) - 1)
@@ -61,25 +84,21 @@ def life_experience(model, continuum, x_te, args):
 
     current_task = -1 # trigger first task change update
     time_start = time.time()
-    print(f'Length of continuum: {continuum.length}')
+    logger.info(f'Length of continuum: {continuum.length}')
 
     for (i, (task, classes, x, y)) in enumerate(continuum):
-        # task - task number
-        # classes - classes in same task
-        # x - image: (b x 3072)
-        # y - label: (b)``
-        print(f'continuum idx {i}')
-        if continuum.current == 20:
-            break
         
         if task != current_task and args.model == 'gem':
             model.update_loss_mask(classes)
 
         # data sorted by task in data processing and built accordingly in continuum init
+        logger.info(f'continuum idx {i}/{continuum.length}')
         if(((i % args.log_every) == 0) or (task != current_task)):
+            logger.info('starting evaluation')
             result_a.append(eval_tasks(model, x_te, args))
             result_t.append(current_task)
             current_task = task
+            logger.info('ending evaluation')
 
         if args.model != 'gem':
             v_x = x.view(x.size(0), -1)
@@ -114,27 +133,27 @@ def main(args):
     random.seed(args.seed)
     if args.cuda:
         torch.cuda.manual_seed_all(args.seed)
-    print('seeds initialised')
+    logger.info('seeds initialised')
 
     # load data
     x_tr, x_te, input_shape, n_outputs, n_tasks = load_datasets(args)
-    print('data loaded')
+    logger.info('data loaded')
 
     # set up continuum
     continuum = Continuum(x_tr, args)
-    print('continuum loaded')
+    logger.info('continuum loaded')
 
     # load model
     Model = importlib.import_module('model.' + args.model)
     model = Model.Net(input_shape, n_outputs, n_tasks, args)
     if args.cuda:
         model.cuda()
-    print('model loaded')
+    logger.info('model loaded')
 
     # run model on continuum
     result_t, result_a, spent_time = life_experience(
         model, continuum, x_te, args)
-    print('training done')
+    logger.info('training done')
 
     # prepare saving path and file name
     if not os.path.exists(args.save_path):
@@ -149,7 +168,7 @@ def main(args):
     stats = confusion_matrix(result_t, result_a, fname + '.txt')
     one_liner = str(vars(args)) + ' # '
     one_liner += ' '.join(["%.3f" % stat for stat in stats])
-    print(fname + ': ' + one_liner + ' # ' + str(spent_time))
+    logger.info(fname + ': ' + one_liner + ' # ' + str(spent_time))
 
     # save all results in binary file
     torch.save((result_t, result_a, model.state_dict(),
@@ -213,4 +232,5 @@ if __name__ == "__main__":
     if args.model == 'multimodal':
         args.n_layers -= 1
 
+    logger = init_logger(f'run_gem_{args.data_file}.log')
     main(args)
