@@ -64,11 +64,41 @@ def load_pickle(file_path):
 
 
 def build_task_list(data, labels):
-    tasks = []
+    '''
+    Continuum expects data to be of the following format
+    x_tr and x_te Contents:
+    task x
+        (task_start_class, task_end_class),
+        (task_sample_no x sample_image_data), image data each 3072 floats (32 x 32 x 3)
+        (task_sample_no), label data each 1 int
+    '''
+    data_list = [[] for _ in range(len(SUPERCLASSES))]
+    label_list = [[] for _ in range(len(SUPERCLASSES))]
+    
     for d, l in zip(data, labels):
         superclass = CLASS_TO_SUPERCLASS[l]
-        tasks.append([SUPERCLASSES[superclass], d, l])
+        data_list[superclass].append(d)
+        label_list[superclass].append(l)
+    
+    tasks = []
+    for idx, superclasses in enumerate(SUPERCLASSES):
+        tasks.append([
+            superclasses, 
+            torch.from_numpy(np.array(data_list[idx])),
+            torch.from_numpy(np.array(label_list[idx]))
+        ])
+
     return tasks
+
+
+def show_task_list_info(task_list):
+    for idx, task in enumerate(task_list):
+        print(f'task {idx}:')
+        print(f'\tclasses: {task[0]}')
+        print(f'\tnumber of samples: {len(task[1])}')
+        if len(task[1]) > 0:
+            print(f'\tsample shape: {task[1][0].shape}')
+            print(f'\tsample label: {task[2][0]}')
 
 
 def main(args):
@@ -87,11 +117,7 @@ def main(args):
     tasks_tr = build_task_list(d_tr, l_tr)
     tasks_te = build_task_list(d_te, l_te)
     
-    print('sample idx 0', tasks_tr[0][0])
-    print('sample idx 1 shape', tasks_tr[0][1].shape)
-    print('sample idx 2', tasks_tr[0][2])
-    print('length of training data', len(tasks_tr))
-    print('length of testing data', len(tasks_te))
+    show_task_list_info(tasks_tr)
     
     torch.save([tasks_tr, tasks_te], args.o)
 
