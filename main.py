@@ -165,7 +165,7 @@ def main(args):
     fname = os.path.join(args.save_path, fname)
 
     # save confusion matrix and print one line of stats
-    stats = confusion_matrix(result_t, result_a, fname + '.txt')
+    stats = confusion_matrix(result_t, result_a, None)
     one_liner = str(vars(args)) + ' # '
     one_liner += ' '.join(["%.3f" % stat for stat in stats])
     logger.info(fname + ': ' + one_liner + ' # ' + str(spent_time))

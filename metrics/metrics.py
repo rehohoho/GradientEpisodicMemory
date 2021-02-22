@@ -45,16 +45,27 @@ def confusion_matrix(result_t, result_a, fname=None):
     if fname is not None:
         f = open(fname, 'w')
 
-        logger.info(' '.join(['%.4f' % r for r in baseline]), file=f)
-        logger.info('|', file=f)
+        logger.info(' '.join(['%.4f' % r for r in baseline]))
+        logger.info('|')
         for row in range(result.size(0)):
-            logger.info(' '.join(['%.4f' % r for r in result[row]]), file=f)
-        logger.info('', file=f)
-        # logger.info('Diagonal Accuracy: %.4f' % acc.mean(), file=f)
-        logger.info('Final Accuracy: %.4f' % fin.mean(), file=f)
-        logger.info('Backward: %.4f' % bwt.mean(), file=f)
-        logger.info('Forward:  %.4f' % fwt.mean(), file=f)
+            logger.info(' '.join(['%.4f' % r for r in result[row]]))
+        logger.info('')
+        # logger.info('Diagonal Accuracy: %.4f' % acc.mean())
+        logger.info('Final Accuracy: %.4f' % fin.mean())
+        logger.info('Backward: %.4f' % bwt.mean())
+        logger.info('Forward:  %.4f' % fwt.mean())
         f.close()
+    
+    else:
+        logger.info(' '.join(['%.4f' % r for r in baseline]))
+        logger.info('|')
+        for row in range(result.size(0)):
+            logger.info(' '.join(['%.4f' % r for r in result[row]]))
+        logger.info('')
+        # logger.info('Diagonal Accuracy: %.4f' % acc.mean())
+        logger.info('Final Accuracy: %.4f' % fin.mean())
+        logger.info('Backward: %.4f' % bwt.mean())
+        logger.info('Forward:  %.4f' % fwt.mean())
 
     stats = []
     # stats.append(acc.mean())
