@@ -9,9 +9,11 @@ task x
     (task_sample_no x sample_image_data), image data each 3072 floats (32 x 32 x 3)
     (task_sample_no), label data each 1 int
 '''
-
+import logging
 import random
 import torch
+
+logger = logging.getLogger(__name__)
 
 
 def load_datasets(args):
@@ -48,9 +50,13 @@ class Continuum:
         returns 
     '''
 
-    def __init__(self, data, args):
+    def __init__(self, data, n_outputs, args):
         self.data = data
         self.batch_size = args.batch_size
+        
+        self.n_outputs = n_outputs
+        self.gpu = args.cuda
+
         n_tasks = len(data)
         task_permutation = range(n_tasks)
 
@@ -119,3 +125,24 @@ class Continuum:
             self.current += i
             j = torch.LongTensor(j)
             return ti, self.data[ti][0], self.data[ti][1][j], self.data[ti][2][j]
+    
+    def get_loss_masks(self):
+        loss_masks = {}
+
+        for t, data in enumerate(self.data):
+            classes = data[0]
+            loss_weights = torch.zeros(self.n_outputs)
+            if self.gpu:
+                loss_weights = loss_weights.cuda()
+
+            if isinstance(classes, tuple):
+                task_classes = range(*classes)
+            elif isinstance(classes, list):
+                task_classes = classes
+            for i in task_classes:
+                loss_weights[i] = 1
+            
+            loss_masks[t] = loss_weights
+            logger.info(f'Loss weights for task {t} generated according {classes}\n{loss_weights}.')
+        
+        return loss_masks

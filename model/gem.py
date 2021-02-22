@@ -102,6 +102,7 @@ class Net(nn.Module):
                  input_shape,
                  n_outputs,
                  n_tasks,
+                 loss_masks,
                  args):
         super(Net, self).__init__()
         nl, nh = args.n_layers, args.n_hiddens
@@ -119,7 +120,7 @@ class Net(nn.Module):
         logger.info(self.net.__str__())
 
         self.ce_type = nn.CrossEntropyLoss
-        self.ce = self.ce_type()
+        self.loss_masks = loss_masks
         self.n_outputs = n_outputs
 
         self.opt = optim.SGD(self.parameters(), args.lr)
@@ -153,22 +154,10 @@ class Net(nn.Module):
         else:
             self.nc_per_task = n_outputs
         '''
-    
-    def update_loss_mask(self, classes):
-        loss_weights = torch.zeros(self.n_outputs)
-        if self.gpu:
-            loss_weights = loss_weights.cuda()
-        if isinstance(classes, tuple):
-            for i in range(*classes):
-                loss_weights[i] = 1
-        elif isinstance(classes, list):
-            for i in classes:
-                loss_weights[i] = 1
-        logger.info(f'Loss weights updated according {classes}\n{loss_weights}.')
-        self.ce = self.ce_type(weight=loss_weights)
 
     def forward(self, x, t):
         output = self.net(x)
+        output *= self.loss_masks[t]
         ''' remove loss subsetting, use weighted loss
         if self.is_cifar:
             # make sure we predict classes within the current task
@@ -218,7 +207,8 @@ class Net(nn.Module):
                 '''
                 loss_input = self.forward(self.memory_data[past_task], past_task)
                 loss_target = self.memory_labs[past_task]
-                ptloss = self.ce(loss_input, loss_target)
+                ce = self.ce_type(weight=self.loss_masks[past_task])
+                ptloss = ce(loss_input, loss_target)
                 ptloss.backward()
                 store_grad(self.parameters, self.grads, self.grad_dims,
                            past_task)
@@ -231,7 +221,8 @@ class Net(nn.Module):
         loss = self.ce(loss_input[:, offset1: offset2], y - offset1)
         '''
         loss_input = self.forward(x, t)
-        loss = self.ce(loss_input, y)
+        ce = self.ce_type(weight=self.loss_masks[t])
+        loss = ce(loss_input, y)
         loss.backward()
 
         # check if gradient violates constraints

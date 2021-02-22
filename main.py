@@ -87,9 +87,6 @@ def life_experience(model, continuum, x_te, args):
     logger.info(f'Length of continuum: {continuum.length}')
 
     for (i, (task, classes, x, y)) in enumerate(continuum):
-        
-        if task != current_task and args.model == 'gem':
-            model.update_loss_mask(classes)
 
         # data sorted by task in data processing and built accordingly in continuum init
         logger.info(f'continuum idx {continuum.current}/{continuum.length}')
@@ -140,12 +137,13 @@ def main(args):
     logger.info('data loaded')
 
     # set up continuum
-    continuum = Continuum(x_tr, args)
+    continuum = Continuum(x_tr, n_outputs, args)
     logger.info('continuum loaded')
 
     # load model
     Model = importlib.import_module('model.' + args.model)
-    model = Model.Net(input_shape, n_outputs, n_tasks, args)
+    loss_masks = continuum.get_loss_masks()
+    model = Model.Net(input_shape, n_outputs, n_tasks, loss_masks, args)
     if args.cuda:
         model.cuda()
     logger.info('model loaded')
