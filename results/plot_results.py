@@ -20,11 +20,13 @@ import numpy as np
 import torch
 
 models = ['single', 'independent', 'multimodal', 'icarl', 'ewc', 'gem']
-datasets = ['mnist_permutations', 'mnist_rotations', 'cifar100']
+datasets = ['mnist_permutations', 'mnist_rotations', 'cifar100', 'nturgbd60', 'nturgbd60_1task']
 
 names_datasets = {'mnist_permutations': 'MNIST permutations',
                   'mnist_rotations': 'MNIST rotations',
-                  'cifar100': 'CIFAR-100'}
+                  'cifar100': 'CIFAR-100',
+                  'nturgbd60': 'NTU-RGBD-60',
+                  'nturgbd60_1task': 'NTU-RGBD-60-1task'}
 
 names_models = {'single': 'single',
                 'independent': 'independent',

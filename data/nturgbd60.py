@@ -22,33 +22,44 @@ Splits nturgbd60 into superclasses suitable for gem
 import argparse
 import os
 import pickle
-
+import logging
 import numpy as np
 import torch
 
-SUPERCLASSES = [
-    [1, 2, 3, 37],
-    [14, 15, 45, 46, 47],
-    [16, 17],
-    [18, 19],
-    [4, 20, 21, 38, 44],
-    [5, 13, 29],
-    [11, 12, 30],
-    [6, 8, 9, 48],
-    [7, 22, 23, 31, 32, 54],
-    [10, 33, 34, 39, 40, 49],
-    [24, 51],
-    [25, 28, 56],
-    [35, 36, 41],
-    [26, 27, 42, 43, 59],
-    [50, 57, 58],
-    [52, 53, 55]
-]
+logger = logging.getLogger(__name__)
 
-CLASS_TO_SUPERCLASS = [0] * 60
-for i, classes in enumerate(SUPERCLASSES):
-    for _class in classes:
-        CLASS_TO_SUPERCLASS[_class] = i
+
+def generate_superclass_map(use_single_task=False):
+    if use_single_task:
+        superclasses = [[i for i in range(60)]]
+    else:
+        superclasses = [
+            [1, 2, 3, 37],
+            [14, 15, 45, 46, 47],
+            [16, 17],
+            [18, 19],
+            [4, 20, 21, 38, 44],
+            [5, 13, 29],
+            [11, 12, 30],
+            [6, 8, 9, 48],
+            [7, 22, 23, 31, 32, 54],
+            [10, 33, 34, 39, 40, 49],
+            [24, 51],
+            [25, 28, 56],
+            [35, 36, 41],
+            [26, 27, 42, 43, 59],
+            [50, 57, 58],
+            [52, 53, 55]
+        ]
+
+    class_to_superclass = [0] * 60
+    for i, classes in enumerate(superclasses):
+        for _class in classes:
+            class_to_superclass[_class] = i
+    
+    print(f'Using superclasses {superclasses}.\nclass_to_superclass map {class_to_superclass}')
+
+    return superclasses, class_to_superclass
 
 
 def load_pickle(file_path):
@@ -63,7 +74,7 @@ def load_pickle(file_path):
     return sample_name, label
 
 
-def build_task_list(data, labels):
+def build_task_list(data, labels, superclasses, class_to_superclass):
     '''
     Continuum expects data to be of the following format
     x_tr and x_te Contents:
@@ -72,16 +83,16 @@ def build_task_list(data, labels):
         (task_sample_no x sample_image_data), image data each 3072 floats (32 x 32 x 3)
         (task_sample_no), label data each 1 int
     '''
-    data_list = [[] for _ in range(len(SUPERCLASSES))]
-    label_list = [[] for _ in range(len(SUPERCLASSES))]
+    data_list = [[] for _ in range(len(superclasses))]
+    label_list = [[] for _ in range(len(superclasses))]
     
     for d, l in zip(data, labels):
-        superclass = CLASS_TO_SUPERCLASS[l]
+        superclass = class_to_superclass[l]
         data_list[superclass].append(d)
         label_list[superclass].append(l)
     
     tasks = []
-    for idx, superclasses in enumerate(SUPERCLASSES):
+    for idx, superclasses in enumerate(superclasses):
         tasks.append([
             superclasses, 
             torch.from_numpy(np.array(data_list[idx])),
@@ -102,11 +113,14 @@ def show_task_list_info(task_list):
 
 
 def main(args):
+    print('Starting...')
     _, l_tr = load_pickle(args.l_tr_path)
     _, l_te = load_pickle(args.l_te_path)
+    print('Loading label data (pickle files) done.')
 
     d_tr = np.load(args.d_tr_path, mmap_mode='r')
     d_te = np.load(args.d_te_path, mmap_mode='r')
+    print('Loading data (npy files) done.')
 
     # for testing uncomment
     # d_tr = d_tr[:100]
@@ -114,8 +128,10 @@ def main(args):
     # l_tr = l_tr[:100]
     # l_te = l_te[:100]
 
-    tasks_tr = build_task_list(d_tr, l_tr)
-    tasks_te = build_task_list(d_te, l_te)
+    superclasses, class_to_superclass = generate_superclass_map(args.use_single_task)
+    tasks_tr = build_task_list(d_tr, l_tr, superclasses, class_to_superclass)
+    tasks_te = build_task_list(d_te, l_te, superclasses, class_to_superclass)
+    print('Loading task list done.')
     
     show_task_list_info(tasks_tr)
     
@@ -129,6 +145,7 @@ if __name__ == '__main__':
     parser.add_argument('--l_tr_path', default='raw/train_label.pkl', help='nturgbd60 testing data .npy')
     parser.add_argument('--d_te_path', default='raw/val_data_joint.npy', help='nturgbd60 training labels .pkl')
     parser.add_argument('--l_te_path', default='raw/val_label.pkl', help='nturgbd60 testing labels .pkl')
+    parser.add_argument('--use_single_task', action='store_true', help='use single task for all classes')
     parser.add_argument('--o', default='nturgbd60.pt', help='output file')
     args = parser.parse_args()
 

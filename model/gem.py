@@ -106,8 +106,8 @@ class Net(nn.Module):
         super(Net, self).__init__()
         nl, nh = args.n_layers, args.n_hiddens
         self.margin = args.memory_strength
-        self.is_cifar = (args.data_file == 'cifar100.pt')
-        self.is_nturgbd = (args.data_file == 'nturgbd60.pt')
+        self.is_cifar = ('cifar100' in args.data_file)
+        self.is_nturgbd = ('nturgbd60' in args.data_file)
         if self.is_cifar:
             self.net = ResNet18(n_outputs)
         elif self.is_nturgbd:

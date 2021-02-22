@@ -92,7 +92,7 @@ def life_experience(model, continuum, x_te, args):
             model.update_loss_mask(classes)
 
         # data sorted by task in data processing and built accordingly in continuum init
-        logger.info(f'continuum idx {i}/{continuum.length}')
+        logger.info(f'continuum idx {continuum.current}/{continuum.length}')
         if(((i % args.log_every) == 0) or (task != current_task)):
             logger.info('starting evaluation')
             result_a.append(eval_tasks(model, x_te, args))

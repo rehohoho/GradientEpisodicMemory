@@ -5,8 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 from __future__ import print_function
+import logging
 
 import torch
+
+logger = logging.getLogger(__name__)
 
 
 def task_changes(result_t):
@@ -42,15 +45,15 @@ def confusion_matrix(result_t, result_a, fname=None):
     if fname is not None:
         f = open(fname, 'w')
 
-        print(' '.join(['%.4f' % r for r in baseline]), file=f)
-        print('|', file=f)
+        logger.info(' '.join(['%.4f' % r for r in baseline]), file=f)
+        logger.info('|', file=f)
         for row in range(result.size(0)):
-            print(' '.join(['%.4f' % r for r in result[row]]), file=f)
-        print('', file=f)
-        # print('Diagonal Accuracy: %.4f' % acc.mean(), file=f)
-        print('Final Accuracy: %.4f' % fin.mean(), file=f)
-        print('Backward: %.4f' % bwt.mean(), file=f)
-        print('Forward:  %.4f' % fwt.mean(), file=f)
+            logger.info(' '.join(['%.4f' % r for r in result[row]]), file=f)
+        logger.info('', file=f)
+        # logger.info('Diagonal Accuracy: %.4f' % acc.mean(), file=f)
+        logger.info('Final Accuracy: %.4f' % fin.mean(), file=f)
+        logger.info('Backward: %.4f' % bwt.mean(), file=f)
+        logger.info('Forward:  %.4f' % fwt.mean(), file=f)
         f.close()
 
     stats = []
