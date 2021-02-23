@@ -121,6 +121,9 @@ class Net(nn.Module):
 
         self.ce_type = nn.CrossEntropyLoss
         self.loss_masks = loss_masks
+        self.task_classes = {}
+        for task, loss_mask in loss_masks.items():
+            self.task_classes[task] = torch.squeeze(loss_mask.nonzero(as_tuple=False))
         self.n_outputs = n_outputs
 
         self.opt = optim.SGD(self.parameters(), args.lr)
@@ -169,6 +172,25 @@ class Net(nn.Module):
                 output[:, offset2:self.n_outputs].data.fill_(-10e10)
         '''
         return output
+    
+    def compute_loss(self, pred, label, task_no):
+        ''' Subsets relevant classes according to task and computes loss '''
+
+        # (n_memories, inputs), (n_memories) -> (n_memories, outputs), (n_memories)
+        ''' remove loss subsetting, use weighted loss
+        offset1, offset2 = compute_offsets(past_task, self.nc_per_task, self.is_cifar)
+        ptloss = self.ce(loss_input[:, offset1: offset2], loss_target - offset1)
+        '''
+        loss_input = self.forward(pred, task_no)
+        loss_target = label
+        task_classes = self.task_classes[task_no]
+        gathered_loss_input = torch.index_select(loss_input, 1, task_classes)
+        # logger.info(f'mapping for {loss_target} to its indices {gather_idx}')
+        for i in range(len(task_classes)-1, -1, -1):
+            loss_target[loss_target==task_classes[i]] = i
+        # logger.info(f'done {loss_target}')
+
+        return self.ce_type()(gathered_loss_input, loss_target)
 
     def observe(self, x, t, y):
         # update memory
@@ -199,30 +221,14 @@ class Net(nn.Module):
                 self.zero_grad()
                 # fwd/bwd on the examples in the memory
                 past_task = self.observed_tasks[tt]
-
-                # (n_memories, inputs), (n_memories) -> (n_memories, outputs), (n_memories)
-                ''' remove loss subsetting, use weighted loss
-                offset1, offset2 = compute_offsets(past_task, self.nc_per_task, self.is_cifar)
-                ptloss = self.ce(loss_input[:, offset1: offset2], loss_target - offset1)
-                '''
-                loss_input = self.forward(self.memory_data[past_task], past_task)
-                loss_target = self.memory_labs[past_task]
-                ce = self.ce_type(weight=self.loss_masks[past_task])
-                ptloss = ce(loss_input, loss_target)
+                ptloss = self.compute_loss(self.memory_data[past_task], self.memory_labs[past_task], past_task)
                 ptloss.backward()
                 store_grad(self.parameters, self.grads, self.grad_dims,
                            past_task)
 
         # now compute the grad on the current minibatch
         self.zero_grad()
-
-        ''' remove loss subsetting, use weighted loss
-        offset1, offset2 = compute_offsets(t, self.nc_per_task, self.is_cifar)
-        loss = self.ce(loss_input[:, offset1: offset2], y - offset1)
-        '''
-        loss_input = self.forward(x, t)
-        ce = self.ce_type(weight=self.loss_masks[t])
-        loss = ce(loss_input, y)
+        loss = self.compute_loss(x, y, t)
         loss.backward()
 
         # check if gradient violates constraints

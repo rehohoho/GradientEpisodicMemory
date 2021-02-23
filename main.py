@@ -82,7 +82,7 @@ def life_experience(model, continuum, x_te, args):
     result_a = []
     result_t = []
 
-    current_task = -1 # trigger first task change update
+    current_task = 0 # trigger first task change update
     time_start = time.time()
     logger.info(f'Length of continuum: {continuum.length}')
 
