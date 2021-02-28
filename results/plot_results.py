@@ -96,7 +96,8 @@ for dataset in datasets:
         matches = glob(model + '*' + dataset + '*.pt')
         if len(matches):
             data = torch.load(matches[0], map_location=lambda storage, loc: storage)
-            evoplot[dataset][model] = data[1][:, 0].numpy()
+            # evoplot[dataset][model] = data[1][:, 0].numpy()
+            evoplot[dataset][model] = data[1].mean(axis=1).numpy()
 
 for dataset in datasets:
 
@@ -104,11 +105,11 @@ for dataset in datasets:
     for model in models:
         if model in evoplot[dataset]:
             x = np.arange(len(evoplot[dataset][model]))
-            x = (x - x.min()) / (x.max() - x.min()) * 20
+            # x = (x - x.min()) / (x.max() - x.min()) * 20
             plt.plot(x, evoplot[dataset][model], color=colors[model], lw=3)
-            plt.xticks(range(0, 21, 2))
+            # plt.xticks(range(0, 21, 2))
 
-    plt.xticks(fontsize=16)
+    # plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
     #plt.xlabel('task number', fontsize=16)
     plt.title(names_datasets[dataset], fontsize=16)

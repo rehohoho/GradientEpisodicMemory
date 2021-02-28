@@ -14,7 +14,7 @@ Splits nturgbd60 into superclasses suitable for gem
 (move legs) 24 kicking something, 51 kicking
 (pockets) 25 reach into pocket, 28 phone call, 56 touch pocket
 (move head) 35 nod head, 36 shake head, 41 sneeze/cough
-(movement) 26 hopping, 27 jump up, 42 staggering, 43 falling down, 59 walking towards
+(movement) 26 hopping, 27 jump up, 42 staggering, 43 falling down, 59 walking towards, 60 walking apart
 (mutual action hand) 50 punch/slap, 57 giving object, 58 shaking hands
 (mutual action body) 52 pushing, 53 pat on back, 55 hugging
 '''
@@ -34,22 +34,22 @@ def generate_superclass_map(use_single_task=False):
         superclasses = [[i for i in range(60)]]
     else:
         superclasses = [
-            [1, 2, 3, 37],
-            [14, 15, 45, 46, 47],
-            [16, 17],
-            [18, 19],
-            [4, 20, 21, 38, 44],
-            [5, 13, 29],
-            [11, 12, 30],
-            [6, 8, 9, 48],
-            [7, 22, 23, 31, 32, 54],
-            [10, 33, 34, 39, 40, 49],
-            [24, 51],
-            [25, 28, 56],
-            [35, 36, 41],
-            [26, 27, 42, 43, 59],
-            [50, 57, 58],
-            [52, 53, 55]
+            [0, 1, 2, 36],
+            [13, 14, 44, 45, 46],
+            [15, 16],
+            [17, 18],
+            [3, 19, 20, 37, 43],
+            [4, 12, 28],
+            [10, 11, 29],
+            [5, 7, 8, 47],
+            [6, 21, 22, 30, 31, 53],
+            [9, 32, 33, 38, 39, 48],
+            [23, 50],
+            [24, 27, 55],
+            [34, 35, 40],
+            [25, 26, 41, 42, 58, 59],
+            [49, 56, 57],
+            [51, 52, 54]
         ]
 
     class_to_superclass = [0] * 60
