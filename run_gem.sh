@@ -7,16 +7,17 @@ python main.py \
     --data_path data/ \
     --save_path results/ \
     --batch_size 1 \
-    --log_every 1 \
+    --log_every 2 \
     --samples_per_task 2 \
     --data_file $1.pt \
-    --cuda no \
+    --cuda yes \
     --seed 0 \
     --model gem \
     --lr 0.1 \
     --n_memories 2 \
     --memory_strength 0.5 \
-    --model_args "{num_class: 60, num_point: 25, num_person: 2, graph: graph.ntu_rgb_d.Graph, graph_args: {labeling_mode: 'spatial'}}"
+    --model_args "{num_class: 60, num_point: 25, num_person: 2, graph: graph.ntu_rgb_d.Graph, graph_args: {labeling_mode: 'spatial'}}" \
+    --checkpoint D:/models/experiments/50c210c_pretrained_without_blocks.pt
 
 # original config
 # --batch_size 10

@@ -189,6 +189,7 @@ class Net(nn.Module):
         for i in range(len(task_classes)-1, -1, -1):
             loss_target[loss_target==task_classes[i]] = i
         # logger.info(f'done {loss_target}')
+        logger.info(f'compute loss {gathered_loss_input} {loss_target}')
 
         return self.ce_type()(gathered_loss_input, loss_target)
 
@@ -222,6 +223,7 @@ class Net(nn.Module):
                 # fwd/bwd on the examples in the memory
                 past_task = self.observed_tasks[tt]
                 ptloss = self.compute_loss(self.memory_data[past_task], self.memory_labs[past_task], past_task)
+                logger.info(f'memory loss {ptloss}')
                 ptloss.backward()
                 store_grad(self.parameters, self.grads, self.grad_dims,
                            past_task)
@@ -229,6 +231,7 @@ class Net(nn.Module):
         # now compute the grad on the current minibatch
         self.zero_grad()
         loss = self.compute_loss(x, y, t)
+        logger.info(f'normal loss {loss}')
         loss.backward()
 
         # check if gradient violates constraints

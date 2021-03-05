@@ -23,15 +23,19 @@ import argparse
 import os
 import pickle
 import logging
+import json
+
 import numpy as np
 import torch
 
 logger = logging.getLogger(__name__)
 
 
-def generate_superclass_map(use_single_task=False):
+def generate_superclass_map(use_single_task=False, pretrained_classes=None):
     if use_single_task:
         superclasses = [[i for i in range(60)]]
+    elif pretrained_classes:
+        superclasses = [[i] for i in range(60) if i not in pretrained_classes]
     else:
         superclasses = [
             [0, 1, 2, 36],
@@ -128,7 +132,12 @@ def main(args):
     # l_tr = l_tr[:100]
     # l_te = l_te[:100]
 
-    superclasses, class_to_superclass = generate_superclass_map(args.use_single_task)
+    pretrained_classes = None
+    if args.initial_class_json:
+        with open(args.initial_class_json, 'r') as f:
+            pretrained_classes = json.load(f)
+    superclasses, class_to_superclass = generate_superclass_map(use_single_task=args.use_single_task,
+                                                                pretrained_classes=pretrained_classes)
     tasks_tr = build_task_list(d_tr, l_tr, superclasses, class_to_superclass)
     tasks_te = build_task_list(d_te, l_te, superclasses, class_to_superclass)
     print('Loading task list done.')
@@ -145,6 +154,8 @@ if __name__ == '__main__':
     parser.add_argument('--l_tr_path', default='raw/train_label.pkl', help='nturgbd60 testing data .npy')
     parser.add_argument('--d_te_path', default='raw/val_data_joint.npy', help='nturgbd60 training labels .pkl')
     parser.add_argument('--l_te_path', default='raw/val_label.pkl', help='nturgbd60 testing labels .pkl')
+
+    parser.add_argument('--initial_class_json', default='raw/initial_classes_50.json', help='Json file containing dictionary of classes pretrained on.')
     parser.add_argument('--use_single_task', action='store_true', help='use single task for all classes')
     parser.add_argument('--o', default='nturgbd60.pt', help='output file')
     args = parser.parse_args()

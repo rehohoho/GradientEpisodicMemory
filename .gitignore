@@ -7,5 +7,6 @@
 *.pkl
 *.npy
 *.log
+*.json
 
 /data/raw/cifar-100-python

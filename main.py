@@ -148,6 +148,10 @@ def main(args):
         model.cuda()
     logger.info('model loaded')
 
+    # resume if required
+    if args.checkpoint:
+        model.net.load_state_dict(torch.load(args.checkpoint))
+
     # run model on continuum
     result_t, result_a, spent_time = life_experience(
         model, continuum, x_te, args)
@@ -185,6 +189,8 @@ if __name__ == "__main__":
                         help='number of hidden layers')
     parser.add_argument('--model_args', default=None,
                         help='a JSON string which specifies model arguments')
+    parser.add_argument('--checkpoint', default=None,
+                        help='Checkpoint to load model weights from.')
 
     # memory parameters
     parser.add_argument('--n_memories', type=int, default=0,
