@@ -187,6 +187,8 @@ if __name__ == "__main__":
                         help='number of hidden neurons at each layer')
     parser.add_argument('--n_layers', type=int, default=2,
                         help='number of hidden layers')
+    parser.add_argument('--backbone', default='AGCN',
+                        help='backbone of model to use')
     parser.add_argument('--model_args', default=None,
                         help='a JSON string which specifies model arguments')
     parser.add_argument('--checkpoint', default=None,

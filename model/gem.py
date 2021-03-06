@@ -6,6 +6,7 @@
 
 import yaml
 import logging
+import importlib
 
 import torch
 import torch.nn as nn
@@ -14,7 +15,6 @@ import numpy as np
 import quadprog
 
 from .common import MLP, ResNet18
-from .agcn import AGCN
 
 logger = logging.getLogger(__name__)
 
@@ -112,8 +112,9 @@ class Net(nn.Module):
         if self.is_cifar:
             self.net = ResNet18(n_outputs)
         elif self.is_nturgbd:
+            backbone = getattr(importlib.import_module('model.backbones'), args.backbone)
             model_args = yaml.load(args.model_args, Loader=yaml.FullLoader)
-            self.net = AGCN(*model_args.values()) # requires model_args to follow defined sequence
+            self.net = backbone(*model_args.values()) # requires model_args to follow defined sequence
         else:
             assert len(input_shape) == 1
             self.net = MLP([input_shape[0]] + [nh] * nl + [n_outputs])
