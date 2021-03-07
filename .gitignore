@@ -8,5 +8,5 @@
 *.npy
 *.log
 *.json
-
+/experiment_results
 /data/raw/cifar-100-python
