@@ -34,9 +34,9 @@ def load_datasets(args):
             n_outputs = max(n_outputs, d_tr[i][2].max().item()) # maximum label
         if len(d_te[i][2]) > 0:
             n_outputs = max(n_outputs, d_te[i][2].max().item())
-    print(f'number of tasks {len(d_tr)}')
-    print(f'max class {n_outputs + 1}')
-    print(f'input_shape {input_shape}')
+    logger.info(f'number of tasks {len(d_tr)}')
+    logger.info(f'max class {n_outputs + 1}')
+    logger.info(f'input_shape {input_shape}')
     return d_tr, d_te, input_shape, n_outputs + 1, len(d_tr)
 
 

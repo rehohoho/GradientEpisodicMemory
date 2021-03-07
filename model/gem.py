@@ -124,7 +124,8 @@ class Net(nn.Module):
         self.loss_masks = loss_masks
         self.task_classes = {}
         for task, loss_mask in loss_masks.items():
-            self.task_classes[task] = torch.squeeze(loss_mask.nonzero(as_tuple=False))
+            self.task_classes[task] = torch.squeeze(loss_mask.nonzero(as_tuple=False), dim=-1)
+            logger.info(f'task classes for {task}: {self.task_classes[task]}')
         self.n_outputs = n_outputs
 
         self.opt = optim.SGD(self.parameters(), args.lr)

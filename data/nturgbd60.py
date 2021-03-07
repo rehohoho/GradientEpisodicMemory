@@ -31,10 +31,10 @@ import torch
 logger = logging.getLogger(__name__)
 
 
-def generate_superclass_map(use_single_task=False, pretrained_classes=None):
+def generate_superclass_map(use_single_task=False, one_class_one_task=False, pretrained_classes=[]):
     if use_single_task:
-        superclasses = [[i for i in range(60)]]
-    elif pretrained_classes:
+        superclasses = [[i for i in range(60) if i not in pretrained_classes]]
+    elif one_class_one_task:
         superclasses = [[i] for i in range(60) if i not in pretrained_classes]
     else:
         superclasses = [
@@ -56,12 +56,13 @@ def generate_superclass_map(use_single_task=False, pretrained_classes=None):
             [51, 52, 54]
         ]
 
-    class_to_superclass = [0] * 60
+    class_to_superclass = [-1] * 60
     for i, classes in enumerate(superclasses):
         for _class in classes:
-            class_to_superclass[_class] = i
+            if _class not in pretrained_classes:
+                class_to_superclass[_class] = i
     
-    print(f'Using superclasses {superclasses}.\nclass_to_superclass map {class_to_superclass}')
+    logger.info(f'Using superclasses {superclasses}.\nclass_to_superclass map {class_to_superclass}')
 
     return superclasses, class_to_superclass
 
@@ -92,6 +93,8 @@ def build_task_list(data, labels, superclasses, class_to_superclass):
     
     for d, l in zip(data, labels):
         superclass = class_to_superclass[l]
+        if superclass == -1:
+            continue
         data_list[superclass].append(d)
         label_list[superclass].append(l)
     
@@ -108,23 +111,23 @@ def build_task_list(data, labels, superclasses, class_to_superclass):
 
 def show_task_list_info(task_list):
     for idx, task in enumerate(task_list):
-        print(f'task {idx}:')
-        print(f'\tclasses: {task[0]}')
-        print(f'\tnumber of samples: {len(task[1])}')
+        logger.info(f'task {idx}:')
+        logger.info(f'\tclasses: {task[0]}')
+        logger.info(f'\tnumber of samples: {len(task[1])}')
         if len(task[1]) > 0:
-            print(f'\tsample shape: {task[1][0].shape}')
-            print(f'\tsample label: {task[2][0]}')
+            logger.info(f'\tsample shape: {task[1][0].shape}')
+            logger.info(f'\tsample label: {task[2][0]}')
 
 
 def main(args):
-    print('Starting...')
+    logger.info('Starting...')
     _, l_tr = load_pickle(args.l_tr_path)
     _, l_te = load_pickle(args.l_te_path)
-    print('Loading label data (pickle files) done.')
+    logger.info('Loading label data (pickle files) done.')
 
     d_tr = np.load(args.d_tr_path, mmap_mode='r')
     d_te = np.load(args.d_te_path, mmap_mode='r')
-    print('Loading data (npy files) done.')
+    logger.info('Loading data (npy files) done.')
 
     # for testing uncomment
     # d_tr = d_tr[:100]
@@ -137,10 +140,11 @@ def main(args):
         with open(args.initial_class_json, 'r') as f:
             pretrained_classes = json.load(f)
     superclasses, class_to_superclass = generate_superclass_map(use_single_task=args.use_single_task,
+                                                                one_class_one_task=args.one_class_one_task,
                                                                 pretrained_classes=pretrained_classes)
     tasks_tr = build_task_list(d_tr, l_tr, superclasses, class_to_superclass)
     tasks_te = build_task_list(d_te, l_te, superclasses, class_to_superclass)
-    print('Loading task list done.')
+    logger.info('Loading task list done.')
     
     show_task_list_info(tasks_tr)
     
@@ -150,14 +154,29 @@ def main(args):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--d_tr_path', default='raw/train_data_joint.npy', help='nturgbd60 training data .npy')
-    parser.add_argument('--l_tr_path', default='raw/train_label.pkl', help='nturgbd60 testing data .npy')
-    parser.add_argument('--d_te_path', default='raw/val_data_joint.npy', help='nturgbd60 training labels .pkl')
-    parser.add_argument('--l_te_path', default='raw/val_label.pkl', help='nturgbd60 testing labels .pkl')
+    parser.add_argument('--d_tr_path', default='raw/ntu_60/xsub/train_data_joint.npy', help='nturgbd60 training data .npy')
+    parser.add_argument('--l_tr_path', default='raw/ntu_60/xsub/train_label.pkl', help='nturgbd60 testing data .npy')
+    parser.add_argument('--d_te_path', default='raw/ntu_60/xsub/val_data_joint.npy', help='nturgbd60 training labels .pkl')
+    parser.add_argument('--l_te_path', default='raw/ntu_60/xsub/val_label.pkl', help='nturgbd60 testing labels .pkl')
 
     parser.add_argument('--initial_class_json', default='raw/initial_classes_50.json', help='Json file containing dictionary of classes pretrained on.')
     parser.add_argument('--use_single_task', action='store_true', help='use single task for all classes')
-    parser.add_argument('--o', default='nturgbd60.pt', help='output file')
+    parser.add_argument('--one_class_one_task', action='store_true', help='use single task per class')
+    parser.add_argument('--o', default='nturgbd60_xsub_joint_ocot.pt', help='output file')
     args = parser.parse_args()
+
+    file_handler = logging.FileHandler(os.path.splitext(args.o)[0] + '.log', mode="w")
+    file_handler.setLevel(logging.DEBUG)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter('%(asctime)s: %(levelname)s - [%(module)s] %(message)s')
+    stream_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
+
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    logger.addHandler(stream_handler)
+    logger.addHandler(file_handler)
 
     main(args)

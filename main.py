@@ -134,6 +134,9 @@ def main(args):
 
     # load data
     x_tr, x_te, input_shape, n_outputs, n_tasks = load_datasets(args)
+    if args.max_class:
+        n_outputs = args.max_class
+        logger.info('number of outputs overrided to be %s' %args.max_class)
     logger.info('data loaded')
 
     # set up continuum
@@ -175,7 +178,7 @@ def main(args):
     # save all results in binary file
     torch.save((result_t, result_a, model.state_dict(),
                 stats, one_liner, args), fname + '.pt')
-
+    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Continuum learning')
@@ -193,6 +196,8 @@ if __name__ == "__main__":
                         help='a JSON string which specifies model arguments')
     parser.add_argument('--checkpoint', default=None,
                         help='Checkpoint to load model weights from.')
+    parser.add_argument('--max_class', type=int, default=None,
+                        help='Maximum number of classes.')
 
     # memory parameters
     parser.add_argument('--n_memories', type=int, default=0,
