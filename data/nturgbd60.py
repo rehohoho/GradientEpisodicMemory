@@ -33,7 +33,9 @@ logger = logging.getLogger(__name__)
 
 def generate_superclass_map(use_single_task=False, one_class_one_task=False, pretrained_classes=[]):
     if use_single_task:
-        superclasses = [[i for i in range(60) if i not in pretrained_classes]]
+        class0 = [i for i in range(60) if i in pretrained_classes]
+        class1 = [i for i in range(60) if i not in pretrained_classes]
+        superclasses = [class0, class1]
     elif one_class_one_task:
         superclasses = [[i] for i in range(60) if i not in pretrained_classes]
     else:
@@ -59,8 +61,7 @@ def generate_superclass_map(use_single_task=False, one_class_one_task=False, pre
     class_to_superclass = [-1] * 60
     for i, classes in enumerate(superclasses):
         for _class in classes:
-            if _class not in pretrained_classes:
-                class_to_superclass[_class] = i
+            class_to_superclass[_class] = i
     
     logger.info(f'Using superclasses {superclasses}.\nclass_to_superclass map {class_to_superclass}')
 
