@@ -163,7 +163,7 @@ class MSG3D(nn.Module):
 
     def forward(self, x):
         N, C, T, V, M = x.size()
-        x = x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T)
+        x = x.permute(0, 4, 3, 1, 2).contiguous().view(N, M * V * C, T).to(dtype=torch.float32)
         x = self.data_bn(x)
         x = x.view(N * M, V, C, T).permute(0,2,3,1).contiguous()
 

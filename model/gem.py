@@ -108,10 +108,10 @@ class Net(nn.Module):
         nl, nh = args.n_layers, args.n_hiddens
         self.margin = args.memory_strength
         self.is_cifar = ('cifar100' in args.data_file)
-        self.is_nturgbd = ('nturgbd60' in args.data_file)
+        self.is_pose_data = ('nturgbd60' in args.data_file or 'fpha' in args.data_file)
         if self.is_cifar:
             self.net = ResNet18(n_outputs)
-        elif self.is_nturgbd:
+        elif self.is_pose_data:
             backbone = getattr(importlib.import_module('model.backbones'), args.backbone)
             model_args = yaml.load(args.model_args, Loader=yaml.FullLoader)
             self.net = backbone(*model_args.values()) # requires model_args to follow defined sequence
@@ -191,7 +191,7 @@ class Net(nn.Module):
         for i in range(len(task_classes)-1, -1, -1):
             loss_target[loss_target==task_classes[i]] = i
         # logger.info(f'done {loss_target}')
-        logger.info(f'compute loss {gathered_loss_input} {loss_target}')
+        # logger.info(f'compute loss {gathered_loss_input} {loss_target}')
 
         return self.ce_type()(gathered_loss_input, loss_target)
 

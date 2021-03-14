@@ -38,6 +38,11 @@ python main.py \
 # ms-gcn config
 # --backbone 'MS_G3D' \
 # --model_args "{num_class: 60, num_point: 25, num_person: 2, num_gcn_scales: 13, num_g3d_scales: 6, graph: graph.ntu_rgb_d.AdjMatrixGraph}" \
+# data (40091, 3, 300, 25, 2)
+
+# fpha ms-gcn
+# --model_args "{num_class: 45, num_point: 21, num_person: 1, num_gcn_scales: 13, num_g3d_scales: 6, graph: graph.ntu_rgb_d.AdjMatrixGraph}" \
+# data (600, 3, 300, 21, 2)
 
 cd results_$1/
 python plot_results.py
