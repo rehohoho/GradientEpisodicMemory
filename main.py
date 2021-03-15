@@ -59,7 +59,7 @@ def eval_tasks(model, tasks, args):
         for b_from in range(0, x.size(0), eval_bs):
             b_to = min(b_from + eval_bs, x.size(0) - 1)
             if b_from == b_to:
-                if 'nturgbd60' not in args.data_file and 'fpha' not in args.data_file:
+                if 'nturgbd60' not in args.data_file and 'fpha' not in args.data_file and 'pkummd' not in args.data_file:
                     xb = x[b_from].view(1, -1)
                     yb = torch.LongTensor([y[b_to]]).view(1, -1)
                 else:
