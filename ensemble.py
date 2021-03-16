@@ -13,7 +13,7 @@ def main(args):
     labels = d_te[0][2]
     
     right_num = total_num = right_num_5 = 0
-    for i in tqdm(range(len(labels))):
+    for i in tqdm(range(len(r1))):
         
         l = labels[i]
         r = r1[i] + r2[i] * arg.alpha

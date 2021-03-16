@@ -45,9 +45,16 @@ def init_logger(path):
     return logger
 
 
-def eval_tasks(model, tasks, args):
+def eval_tasks(model, tasks, args, save_filename):
     model.eval()
     result = []
+    
+    num_samples = 0
+    for task in tasks:
+        num_samples += len(task[2])
+    preds = torch.zeros((num_samples))
+    start_ix = 0
+
     for i, task in enumerate(tasks):
         t = i
         x = task[1]
@@ -73,7 +80,11 @@ def eval_tasks(model, tasks, args):
             _, pb = torch.max(model(xb, t).data.cpu(), 1, keepdim=False)
             rt += (pb == yb).float().sum()
 
+            preds[b_from:b_to] = pb
+
         result.append(rt / x.size(0))
+    
+    torch.save(preds, os.path.join(args.save_path, save_filename + '.pth'))
 
     return result
 
@@ -92,7 +103,7 @@ def life_experience(model, continuum, x_te, args):
         logger.info(f'continuum idx {continuum.current}/{continuum.length}')
         if(((i % args.log_every) == 0) or (task != current_task)):
             logger.info('starting evaluation')
-            result_a.append(eval_tasks(model, x_te, args))
+            result_a.append(eval_tasks(model, x_te, args, "task_num%s" %task))
             result_t.append(current_task)
             current_task = task
             logger.info('ending evaluation')
@@ -110,7 +121,7 @@ def life_experience(model, continuum, x_te, args):
         model.train()
         model.observe(v_x, task, v_y)
 
-    result_a.append(eval_tasks(model, x_te, args))
+    result_a.append(eval_tasks(model, x_te, args, "task_num%s" %task))
     result_t.append(current_task)
 
     time_end = time.time()
