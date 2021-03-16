@@ -35,7 +35,8 @@ def generate_superclass_map(args, pretrained_classes=[]):
     if args.use_single_task:
         superclasses = [[i for i in range(args.max_class) if i not in pretrained_classes]]
     elif args.one_class_one_task:
-        superclasses = [[i] for i in range(args.max_class) if i not in pretrained_classes]
+        pretrained_classes = [i for i in range(args.max_class) if i in pretrained_classes]
+        superclasses = [pretrained_classes] + [[i] for i in range(args.max_class) if i not in pretrained_classes]
     else:
         superclasses = [
             [0, 1, 2, 36],
